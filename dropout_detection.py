@@ -311,15 +311,10 @@ class DropoutResult:
         Args:
             return_summary (bool) [default=False]: if True, returns the summary as a string
         """
-        # summary = f"{len(self.get_dropped_fovs())} unique FOVs were dropped out of {len(self.get_considered_fovs())} considered FOVs ({100 * len(self.get_dropped_fovs()) / len(self.get_considered_fovs()):.2f}%)\n" +\
-        #        f"FOVs with dropout dropped out in {self.get_dropout_count() / max(len(self.get_dropped_fovs()), 1):.2f} genes on average out of possible total of {len(self.get_considered_genes())} ({100 * self.get_dropout_count() / max(len(self.get_considered_genes()) * len(self.get_dropped_fovs()), 1):.2f}%)\n" +\
-        #        f"{len(self.get_false_positive_fovs())} unique FOVs were not considered dropped due to false positive correction ({100 * len(self.get_false_positive_fovs()) / max(len(self.get_false_positive_fovs()) + len(self.get_dropped_fovs()), 1):.2f}% of the FOVs initially considered dropped)\n" +\
-        #        f"{len(self.get_dropped_genes())} genes were affected by dropout out of {len(self.get_considered_genes())} possible ({100 * len(self.get_dropped_genes()) / len(self.get_considered_genes()):.2f}%)\n" +\
-        #        f"Genes with dropout averaged {self.get_dropout_count() / max(len(self.get_dropped_genes()), 1):.2f} dropped FOVs out of {len(self.get_considered_fovs())} possible FOVs ({100 * self.get_dropout_count() / max(len(self.get_dropped_genes()) * len(self.get_considered_fovs()), 1):.2f}%)"
-        summary = f"{self.get_dropped_fov_counts()} unique FOVs were dropped out of {self.get_considered_fov_counts()} considered FOVs ({100 * self.get_dropped_fov_counts() / self.get_considered_fov_counts():.2f}%)\n" +\
+        summary = f"{self.get_dropped_fov_counts()} unique FOVs were dropped out of {self.get_considered_fov_counts()} considered FOVs ({100 * self.get_dropped_fov_counts() / max(self.get_considered_fov_counts(), 1):.2f}%)\n" +\
                f"FOVs with dropout dropped out in {self.get_dropout_count() / max(self.get_dropped_fov_counts(), 1):.2f} genes on average out of possible total of {self.get_considered_gene_counts()} ({100 * self.get_dropout_count() / max(self.get_considered_gene_counts() * self.get_dropped_fov_counts(), 1):.2f}%)\n" +\
                f"{self.get_false_positive_fov_counts()} unique FOVs were not considered dropped due to false positive correction ({100 * self.get_false_positive_fov_counts() / max(self.get_false_positive_fov_counts() + self.get_dropped_fov_counts(), 1):.2f}% of the FOVs initially considered dropped)\n" +\
-               f"{self.get_dropped_gene_counts()} genes were affected by dropout out of {self.get_considered_gene_counts()} possible ({100 * self.get_dropped_gene_counts() / self.get_considered_gene_counts():.2f}%)\n" +\
+               f"{self.get_dropped_gene_counts()} genes were affected by dropout out of {self.get_considered_gene_counts()} possible ({100 * self.get_dropped_gene_counts() / max(self.get_considered_gene_counts(), 1):.2f}%)\n" +\
                f"Genes with dropout averaged {self.get_dropout_count() / max(self.get_dropped_gene_counts(), 1):.2f} dropped FOVs out of {self.get_considered_fov_counts()} possible FOVs ({100 * self.get_dropout_count() / max(self.get_dropped_gene_counts() * self.get_considered_fov_counts(), 1):.2f}%)"
         print(summary)
         if return_summary:
