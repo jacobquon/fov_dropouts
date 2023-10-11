@@ -550,7 +550,7 @@ class TranscriptImage(DropoutResult):
         self.transcripts = self.read_transcripts(merscope_out_dir, experiment_id, project=project, region=region)
         print("    Time:", time() - t, flush=True)
 
-    def run_dropout_pipeline(self, mask_out_dir, codebook_path, threshold=0.15, elastik_version="1.0"):
+    def run_dropout_pipeline(self, mask_out_dir, codebook_path, threshold=0.15):
         """
         Runs all the steps necessary for dropout detection
         
@@ -558,7 +558,6 @@ class TranscriptImage(DropoutResult):
             mask_out_dir (str/path): the output directory for the tissue mask information (used to find on-tissue FOVs)
             codebook_path (str/path): The path to the codebook used in the merscope experiment
             threshold (float) [default=0.1]: The transcript delta threshold b/w an FOV and its neighbors at which the FOV is considered dropped
-            elastik_version (str) [default='1.0']: version of elastik
         """
         # Create FOV table
         print("Creating FOV table", flush=True); t = time()
@@ -567,7 +566,7 @@ class TranscriptImage(DropoutResult):
 
         # Find on-tissue FOVs
         print("Finding on-tissue FOVs", flush=True); t = time()
-        self.find_on_tissue_fovs(mask_out_dir, elastik_version=elastik_version)
+        self.find_on_tissue_fovs(mask_out_dir)
         print("    Time:", time() - t, flush=True)
 
         # Find the neighbors for each FOV
@@ -620,7 +619,7 @@ class TranscriptImage(DropoutResult):
         '''
         return int(math.floor(x / 10.0)) * 10
     
-    def ilastik_tissue_mask(self, mask_out_dir, elastik_version="1.0"):
+    def ilastik_tissue_mask(self, mask_out_dir):
         '''
         This function utilizes the Ilastik program to generate a tissue mask for on-tissue transcript calculations. An image
         of all filtered transcripts is generated, fed into the ilastik pixel classification workflow to generate a probability
@@ -629,7 +628,6 @@ class TranscriptImage(DropoutResult):
         
         Args:
             mask_out_dir (str/Path): the directory in which to store all the tissue mask calculations
-            elastik_version (str): version of elastik
         Returns: 
             None, but images are generated and saved in specified folders
         '''
@@ -643,15 +641,12 @@ class TranscriptImage(DropoutResult):
             pass
         
         ilastik_folder = '/allen/programs/celltypes/workgroups/rnaseqanalysis/mFISH/merfish_qc/tissue_mask'
-        # Ensure proper version is given. Currently on version 1.0 exists
-        if not os.path.exists(f"{ilastik_folder}/v{elastik_version}"):
-            raise Exception(f"Ilastik version {elastik_version} does not exist.")
             
         # Ilastik workflow
         ilastik_location = Path(f"{ilastik_folder}/ilastik_program/ilastik-1.4.0-Linux/run_ilastik.sh")
-        pixel_project_location = Path(f"{ilastik_folder}/v{str(elastik_version)}/TissueMaskPixelClassification_v1.0.ilp")
-        object_project_location = Path(f"{ilastik_folder}/v{str(elastik_version)}/TissueMaskObjects_v1.0.ilp")
-            
+        pixel_project_location = Path(f"{ilastik_folder}/models/TissueMaskPixelClassification_v1.0.ilp")
+        object_project_location = Path(f"{ilastik_folder}/models/TissueMaskObjects_v1.0.ilp")
+        
         # convert filtered transcripts to an image via 2D histogram
         # The image goes from 0 to the the max x/y rounded to the nearest 10
         # Each pixel in the image represent 10 um, thus bin coordinates are original coords / 10
@@ -715,20 +710,19 @@ class TranscriptImage(DropoutResult):
         err_log_file.close()
         return None
     
-    def find_on_tissue_fovs(self, mask_out_dir, elastik_version="1.0"):
+    def find_on_tissue_fovs(self, mask_out_dir):
         '''
         Uses output from Ilastik to determine on and off-tissue FOVs, and then removes off-tissue FOVs from the FOV table
         An FOV is considered on-tissue if at least 50% of its area is on-tissue
         
         Args:
             mask_out_dir (str/Path): the directory where all the tissue mask calculations were stored
-            elastik_version (str): version of elastik
         
         Sets: 
             self.fovs (dataframe): Adds a column to track whether an FOV is on-tissue or not
         '''
         mask_out_dir = Path(mask_out_dir)
-        self.ilastik_tissue_mask(mask_out_dir, elastik_version=elastik_version)
+        self.ilastik_tissue_mask(mask_out_dir)
     
         # Coords map from the mask to 10x in the transcripts/gene_fovs coordinates
         # e.g. mask[472, 501] --> transcripts[4720:4730, 5010:5020]
@@ -881,6 +875,24 @@ class TranscriptImage(DropoutResult):
         """
         codebook = pd.read_table(codebook_path, header=0, sep=',').drop(columns=['id', 'barcodeType'], errors='ignore').set_index('name')
         self.codebook = codebook[~codebook.index.str.startswith("Blank")]
+
+        # Warn user of potential problem if codebook genes are not the same as transcripts.csv genes and remove these genes from the fovs dataframe
+        missing_genes_bool = False
+        missing_transcripts_genes = []
+        missing_codebook_genes = []
+        transcripts_genes = list(self.fovs.filter(regex='dropout').columns.str.replace('dropout_', ''))
+        codebook_genes = list(self.codebook.index)
+        for transcripts_gene in transcripts_genes:
+            if transcripts_gene not in codebook_genes:
+                missing_transcripts_genes.append(transcripts_gene)
+                missing_genes_bool = True
+                self.fovs = self.fovs.drop(columns=list(self.fovs.filter(regex=transcripts_gene))) # Drop the missing gene from the fovs dataframe
+        for codebook_gene in codebook_genes:
+            if codebook_gene not in transcripts_genes:
+                missing_codebook_genes.append(codebook_gene)
+                missing_genes_bool = True
+        if missing_genes_bool:
+            warnings.warn(f'WARNING: codebook and transcripts.csv contain differing genes. These genes will be removed from dropout consideration. Codebook is missing {",".join(missing_codebook_genes)}. Transcripts.csv is missing {",".join(missing_transcripts_genes)}')
         
     def detect_false_positives(self):
         """
@@ -981,4 +993,3 @@ class TranscriptImage(DropoutResult):
             if len(filename.split('.')) == 1:
                 filename += ".txt.gz"
         self.fovs.to_csv(Path(output_dir) / filename, sep="\t")
-
