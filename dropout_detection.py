@@ -892,7 +892,7 @@ class TranscriptImage(DropoutResult):
                 missing_codebook_genes.append(codebook_gene)
                 missing_genes_bool = True
         if missing_genes_bool:
-            warnings.warn(f'WARNING: codebook and transcripts.csv contain differing genes. These genes will be removed from dropout consideration. Codebook is missing {",".join(missing_codebook_genes)}. Transcripts.csv is missing {",".join(missing_transcripts_genes)}')
+            warnings.warn(f'WARNING: The codebook and transcripts.csv files contain differing genes. The transcripts.csv file is missing {",".join(missing_codebook_genes)}. The codebook is missing {",".join(missing_transcripts_genes)}. Genes missing from the codebook will be removed from dropout consideration as they cannot be properly false positive corrected.')
         
     def detect_false_positives(self):
         """
