@@ -744,6 +744,10 @@ class TranscriptImage(DropoutResult):
             
         self.fovs['on_tissue'] = on_tissue
 
+        # If no on-tissue FOVs are found. Raise an error
+        if not np.any(on_tissue):
+            raise RuntimeError('No on-tissue FOVs found (likely a failure in Ilastik tissue mask generation)')
+
     def find_neighbors(self):
         """
         Find the neighbors for each of the on-tissue FOVs using the grid coordinates
@@ -865,6 +869,17 @@ class TranscriptImage(DropoutResult):
             self.fovs = self.fovs.merge(gene_df[[f"transcript_threshold_{gene}", f"deltas_{gene}", f"dropout_{gene}"]], left_index=True, right_index=True, how='left', suffixes=('', '_remove'))
             # remove the duplicate columns
             self.fovs.drop([i for i in self.fovs.columns if 'remove' in i], axis=1, inplace=True)
+            
+        # Look over all FOVS. If none of the genes for an FOV had neighbors over the transcript threshold, then we know that FOV was never considered for dropout
+        # FOVs never considered for dropout can cause divide by zero errors downstream if not noted. Thus we roll them in with 'off-tissue' FOVs as a way of noting their situation
+        # While perhaps not the most thorough method, this is safe because we don't want to look at either these FOVs or off-tissue FOVs and the difference between these classes is of no importance to the end user
+        for fov in self.fovs.index:
+            if self.fovs.loc[fov, 'on_tissue'] and np.count_nonzero(self.fovs.filter(regex='transcript_threshold').loc[fov]) == 0:
+                self.fovs.loc[fov, 'on_tissue'] = False
+
+        # If no on-tissue FOVs are found. Raise an error
+        if not np.any(self.fovs['on_tissue']):
+            raise RuntimeError('No on-tissue FOVs found (likely a failure in Ilastik tissue mask generation)')
 
     def read_codebook(self, codebook_path):
         """
