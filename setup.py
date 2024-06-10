@@ -8,8 +8,7 @@ install_requirements = REQUIREMENTS.splitlines()
 
 setup(
 	name='dropout_detection',
-	verion='1.0.0',
-	scripts=['dropout_detection.py'],
+	version='1.0.0',
 	install_requires=install_requirements,
-	py_modules=[]
+	py_modules=['dropout_detection']
 )
